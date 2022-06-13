@@ -9,6 +9,7 @@ Flow Aggregation service (FAS) enables users (other services) to write network f
 •	bytes_tx - int  
 •	bytes_rx - int  
 •	hour - int  
+
 The core functionality requirements of Flow aggregation service are  
 1. Accept network flow data points via a Write API  
 2. Aggregate those data points to accumulate the bytes transferred per flow  
@@ -22,10 +23,10 @@ The design proposed here is to have two separate microservices.
 2.	Flow Aggregation Store: The is a stateful service that keeps a mapping of flow keys (src, dest, vpc_id, hour) to flow. We could choose to store the aggregation in database and read/write everytime but since our requirements are simple and there is no need to use a relational database we will use a in-memory key-value store. We can use something like a redis which provides fault tolerance and high availability by replicating data to multiple replicas. Only primary serves requests write requests and in case of failure a secondary can be promoted to primary.  
 ![Design.jpg](https://github.com/abdulwaheed05/FlowAggService/blob/b0a3fb724387d3c640ee57eaebe2e9716a30a75f/Design.jpg)
  
-Implementation
+Implementation  
 The specific implementation for this service separates the two microservices into two different dynamic libraries to mimic the above design. 
-The Data Flow service project uses AspNet core that provides the http APIs for reading/writing network flow data. One of the scalability limitations could be the number of network connections from users to this service and therefore adding more instances of this service could solve that problem. This service could easily scale to billions of calls per second.
-The InMemoryFlowAggregationService provides an implementation of the IFlowAggregation service to store the actual aggregated data. ConcurrentDictionary is used to handle write access to the aggregated data by multiple threads. Since this service needs to write / or update existing data, it must always be consistent. To achieve consistency, we must only allow writing through the primary replica (instance) of this service. This could become a bottleneck for the scalability of our service. To improve scale of and throughout of this service we could choose to shard/partition this service. Because user queries are always for data that are per hour, one way to shard the data is by having a shard for each hour or group of hours.  
+The Data Flow service project uses AspNet core that provides the http APIs for reading/writing network flow data. One of the scalability limitations could be the number of network connections from users to this service and therefore adding more instances of this service could solve that problem. This service could easily scale to billions of calls per second.  
+The InMemoryFlowAggregationService provides an implementation of the IFlowAggregation service to store the actual aggregated data. ConcurrentDictionary is used to handle write access to the aggregated data by multiple threads. Since this service needs to write / or update existing data, it must always be consistent. To achieve consistency, we must only allow writing through the primary replica (instance) of this service. This could become a bottleneck for the scalability of our service. To improve scale of and throughout of this service we could choose to shard/partition this service. Because user queries are always for data that are per hour, one way to shard the data is by having a shard for each hour or group of hours.   
 Scalability Limits  
 Data Flow Service  
 This is a stateless service which is just receiving the network flows, does some basic aggregation and then calls the stateful service to store/update those aggregations. The main scalability limitations of this service are
